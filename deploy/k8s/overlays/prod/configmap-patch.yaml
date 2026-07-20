@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: interpro-mcp-config
+data:
+  # Activate application-prod.properties
+  SPRING_PROFILES_ACTIVE: "prod"

@@ -1,0 +1,84 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  IMAGE: $CI_REGISTRY_IMAGE
+  TAG: $CI_COMMIT_SHORT_SHA
+
+# Run the pipeline only on the default branch (what the mirror pushes).
+# workflow:
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# ---- Build & push the image with Docker ----
+build:
+  stage: build
+  image: docker:27-cli
+  variables:
+    DOCKER_HOST: unix:///var/run/docker.sock
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+    - >-
+      docker build
+      -f deploy/Dockerfile
+      -t "$IMAGE:$TAG"
+      -t "$IMAGE:latest"
+      .
+    - docker push "$IMAGE:$TAG"
+    - docker push "$IMAGE:latest"
+
+# ---- Deploy the dev/test instance (wwwdev.ebi.ac.uk/interpro/mcp) ----
+deploy_dev:
+  stage: deploy
+  image: alpine/k8s:1.30.3          # bundles kubectl + kustomize + a shell
+  variables:
+    NAMESPACE: interpro-mcp-dev
+    OVERLAY: deploy/k8s/overlays/dev
+  script:
+    # Decode the base64 kubeconfig into a file for kubectl.
+    - echo "$KUBECONFIG_B64" | base64 -d > "$CI_PROJECT_DIR/kubeconfig"
+    - chmod 600 "$CI_PROJECT_DIR/kubeconfig"
+    - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig"
+    - kubectl apply -f "$OVERLAY/namespace.yaml"
+    # Pull secret so the cluster can fetch the image from the private registry, using the
+    # long-lived `gitlab-deploy-token`
+    - >-
+      kubectl -n "$NAMESPACE" create secret docker-registry gitlab-registry
+      --docker-server="$CI_REGISTRY"
+      --docker-username="$CI_DEPLOY_USER"
+      --docker-password="$CI_DEPLOY_PASSWORD"
+      --dry-run=client -o yaml | kubectl apply -f -
+    # Pin the freshly built image into the overlay, render, and apply.
+    - (cd "$OVERLAY" && kustomize edit set image "interpro-mcp=$IMAGE:$TAG")
+    - kustomize build "$OVERLAY" | kubectl apply -f -
+    - kubectl -n "$NAMESPACE" rollout status deployment/interpro-mcp --timeout=180s
+  environment:
+    name: dev
+    url: https://wwwdev.ebi.ac.uk/interpro/mcp
+
+# ---- Deploy the LIVE instance (www.ebi.ac.uk/interpro/mcp) ----
+# deploy_prod:
+#   stage: deploy
+#   image: alpine/k8s:1.30.3
+#   when: manual
+#   variables:
+#     NAMESPACE: interpro-mcp-prod
+#     OVERLAY: deploy/k8s/overlays/prod
+#   script:
+#     - echo "$KUBECONFIG_B64" | base64 -d > "$CI_PROJECT_DIR/kubeconfig"
+#     - chmod 600 "$CI_PROJECT_DIR/kubeconfig"
+#     - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig"
+#     - kubectl apply -f "$OVERLAY/namespace.yaml"
+#     - >-
+#       kubectl -n "$NAMESPACE" create secret docker-registry gitlab-registry
+#       --docker-server="$CI_REGISTRY"
+#       --docker-username="$CI_DEPLOY_USER"
+#       --docker-password="$CI_DEPLOY_PASSWORD"
+#       --dry-run=client -o yaml | kubectl apply -f -
+#     - (cd "$OVERLAY" && kustomize edit set image "interpro-mcp=$IMAGE:$TAG")
+#     - kustomize build "$OVERLAY" | kubectl apply -f -
+#     - kubectl -n "$NAMESPACE" rollout status deployment/interpro-mcp --timeout=180s
+#   environment:
+#     name: production
+#     url: https://www.ebi.ac.uk/interpro/mcp

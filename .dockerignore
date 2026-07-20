@@ -1,0 +1,5 @@
+# Build context is the repo root. The image build only needs pom.xml and src/,
+# so ignore everything else to keep the context small and the build reproducible.
+*
+!pom.xml
+!src

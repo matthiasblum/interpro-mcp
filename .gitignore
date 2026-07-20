@@ -1,0 +1,19 @@
+target/
+*.class
+*.log
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Sphinx documentation build
+docs/_build/
+
+# Python (eval/ test suite)
+__pycache__/
+*.pyc
+.pytest_cache/

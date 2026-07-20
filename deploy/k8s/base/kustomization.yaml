@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Common resources shared by every environment. The dev/prod overlays add a
+# Namespace + Ingress and patch the env-specific bits. 
+# Do not deploy this base directly: deploy an overlay.
+resources:
+  - configmap.yaml
+  - deployment.yaml
+  - service.yaml

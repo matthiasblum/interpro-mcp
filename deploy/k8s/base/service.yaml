@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: interpro-mcp
+  labels:
+    app: interpro-mcp
+# Namespace is set per overlay by the kustomize `namespace:` transformer.
+spec:
+  type: ClusterIP
+  selector:
+    app: interpro-mcp
+  ports:
+    - name: http
+      port: 80          # in-cluster: http://interpro-mcp.<namespace>.svc/mcp
+      targetPort: http  # -> container port 8082

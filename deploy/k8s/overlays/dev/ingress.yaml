@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: interpro-mcp
+  annotations:
+    # MCP uses Streamable HTTP, whose responses can be long-lived SSE streams
+    # (text/event-stream). Disable buffering and raise timeouts so streamed
+    # responses aren't buffered or cut off. (ingress-nginx specific.)
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # The EMBL-EBI traffic manager forwards the full public path unchanged, so this
+    # ingress strips the /interpro prefix: /interpro/mcp -> /mcp.
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /mcp$1
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: wwwdev.ebi.ac.uk
+      http:
+        paths:
+          - path: /interpro/mcp(/.*)?$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: interpro-mcp
+                port:
+                  number: 80
+  # Enable TLS once a certificate secret exists (e.g. via cert-manager):
+  # tls:
+  #   - hosts:
+  #       - wwwdev.ebi.ac.uk
+  #     secretName: interpro-mcp-dev-tls
