@@ -58,27 +58,27 @@ deploy_dev:
     url: https://wwwdev.ebi.ac.uk/interpro/mcp
 
 # ---- Deploy the LIVE instance (www.ebi.ac.uk/interpro/mcp) ----
-# deploy_prod:
-#   stage: deploy
-#   image: alpine/k8s:1.30.3
-#   when: manual
-#   variables:
-#     NAMESPACE: interpro-mcp-prod
-#     OVERLAY: deploy/k8s/overlays/prod
-#   script:
-#     - echo "$KUBECONFIG_B64" | base64 -d > "$CI_PROJECT_DIR/kubeconfig"
-#     - chmod 600 "$CI_PROJECT_DIR/kubeconfig"
-#     - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig"
-#     - kubectl apply -f "$OVERLAY/namespace.yaml"
-#     - >-
-#       kubectl -n "$NAMESPACE" create secret docker-registry gitlab-registry
-#       --docker-server="$CI_REGISTRY"
-#       --docker-username="$CI_DEPLOY_USER"
-#       --docker-password="$CI_DEPLOY_PASSWORD"
-#       --dry-run=client -o yaml | kubectl apply -f -
-#     - (cd "$OVERLAY" && kustomize edit set image "interpro-mcp=$IMAGE:$TAG")
-#     - kustomize build "$OVERLAY" | kubectl apply -f -
-#     - kubectl -n "$NAMESPACE" rollout status deployment/interpro-mcp --timeout=180s
-#   environment:
-#     name: production
-#     url: https://www.ebi.ac.uk/interpro/mcp
+deploy_prod:
+  stage: deploy
+  image: alpine/k8s:1.30.3
+  when: manual
+  variables:
+    NAMESPACE: interpro-mcp-prod
+    OVERLAY: deploy/k8s/overlays/prod
+  script:
+    - echo "$KUBECONFIG_B64" | base64 -d > "$CI_PROJECT_DIR/kubeconfig"
+    - chmod 600 "$CI_PROJECT_DIR/kubeconfig"
+    - export KUBECONFIG="$CI_PROJECT_DIR/kubeconfig"
+    - kubectl apply -f "$OVERLAY/namespace.yaml"
+    - >-
+      kubectl -n "$NAMESPACE" create secret docker-registry gitlab-registry
+      --docker-server="$CI_REGISTRY"
+      --docker-username="$CI_DEPLOY_USER"
+      --docker-password="$CI_DEPLOY_PASSWORD"
+      --dry-run=client -o yaml | kubectl apply -f -
+    - (cd "$OVERLAY" && kustomize edit set image "interpro-mcp=$IMAGE:$TAG")
+    - kustomize build "$OVERLAY" | kubectl apply -f -
+    - kubectl -n "$NAMESPACE" rollout status deployment/interpro-mcp --timeout=180s
+  environment:
+    name: production
+    url: https://www.ebi.ac.uk/interpro/mcp
